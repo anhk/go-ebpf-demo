@@ -1,0 +1,24 @@
+---
+Language:        Cpp
+BasedOnStyle:    LLVM
+ColumnLimit:     120
+IndentWidth:     4
+TabWidth:        4
+UseCRLF:         false
+UseTab:          Never
+BreakBeforeBraces: WebKit
+IncludeCategories: 
+  - Regex:  '^"(llvm|llvm-c|clang|clang-c)/'
+    Priority:   2
+  - Regex:  '^(<|"(gtest|isl|json)/)'
+    Priority:   3
+  - Regex:  '.*'
+    Priority:   4
+AllowShortFunctionsOnASingleLine: InlineOnly
+AlignEscapedNewlines: DontAlign
+AllowShortBlocksOnASingleLine: Always
+
+---
+Language:        Proto
+BasedOnStyle:    LLVM
+
