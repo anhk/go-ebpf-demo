@@ -12,6 +12,22 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type xdpSlbKey struct {
+	Vip  uint32
+	Port uint16
+	Pad1 uint16
+	Slot uint32
+	Pad2 uint32
+}
+
+type xdpSlbValue struct {
+	Count uint32
+	Rip   uint32
+	Port  uint16
+	Pad1  uint16
+	Pad2  uint32
+}
+
 // loadXdp returns the embedded CollectionSpec for xdp.
 func loadXdp() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_XdpBytes)
@@ -60,6 +76,7 @@ type xdpProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type xdpMapSpecs struct {
+	SlbMap *ebpf.MapSpec `ebpf:"slb_map"`
 }
 
 // xdpObjects contains all objects after they have been loaded into the kernel.
@@ -81,10 +98,13 @@ func (o *xdpObjects) Close() error {
 //
 // It can be passed to loadXdpObjects or ebpf.CollectionSpec.LoadAndAssign.
 type xdpMaps struct {
+	SlbMap *ebpf.Map `ebpf:"slb_map"`
 }
 
 func (m *xdpMaps) Close() error {
-	return _XdpClose()
+	return _XdpClose(
+		m.SlbMap,
+	)
 }
 
 // xdpPrograms contains all programs after they have been loaded into the kernel.
