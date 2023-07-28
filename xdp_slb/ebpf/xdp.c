@@ -15,7 +15,7 @@ struct slb_key {
     __u16 _pad1;
     __u32 slot;
     __u32 _pad2;
-} __attribute__((__packed__));
+};
 
 struct slb_value {
     __u32 count;
@@ -23,7 +23,7 @@ struct slb_value {
     __u16 port;
     __u16 _pad1;
     __u32 _pad2;
-} __attribute__((__packed__));
+};
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -79,14 +79,11 @@ int xdp_slb(struct xdp_md *ctx)
 
     // SLB
     key.slot = bpf_get_prandom_u32() % value->count + 1;
-    bpf_printk("slot: %d", key.slot);
-
     if ((value = bpf_map_lookup_elem(&slb_map, &key)) == NULL) {
         return XDP_PASS;
     }
 
-    bpf_printk("got backend: count: %d, rip: %pI4, port: %d", value->count, value->rip, value->port);
-    bpf_printk("backend pad: %x %x", value->_pad1, value->_pad2);
+    bpf_printk("got backend: slot: %d, rip: %pI4, port: %d", key.slot, &(value->rip), bpf_ntohs(value->port));
     return XDP_DROP;
 }
 
