@@ -31,7 +31,8 @@ type SlbValue struct {
 }
 
 var (
-	vip     = "192.168.64.37:9999"
+	vip     = "172.31.129.167:9999"
+	ifName  = "eth0"
 	backend = []string{
 		"10.244.47.101:80",
 		"10.244.47.102:80",
@@ -52,12 +53,13 @@ func htons(p uint16) uint16 {
 
 func main() {
 	utils.Must(rlimit.RemoveMemlock())
+	utils.Must(utils.MountBPF())
 
 	objs := &xdpObjects{}
 	utils.Must(loadXdpObjects(objs, &ebpf.CollectionOptions{Maps: ebpf.MapOptions{PinPath: "/sys/fs/bpf"}}))
 	defer objs.Close()
 
-	iface, err := net.InterfaceByName("enp0s1")
+	iface, err := net.InterfaceByName(ifName)
 	utils.Must(err)
 
 	xdp, err := link.AttachXDP(link.XDPOptions{
