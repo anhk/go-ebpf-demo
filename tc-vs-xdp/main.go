@@ -51,15 +51,6 @@ func main() {
 	// For enhanced error messages from the kernel
 	utils.Must(tcnl.SetOption(netlink.ExtendedAcknowledge, true))
 
-	qdiscs, err := tcnl.Qdisc().Get()
-	utils.Must(err)
-
-	for _, qdisc := range qdiscs {
-		iface, err := net.InterfaceByIndex(int(qdisc.Ifindex))
-		utils.Must(err)
-		log.Infof("QDISC for %v", iface.Name)
-	}
-
 	qdisc := tc.Object{
 		Msg: tc.Msg{
 			Family:  unix.AF_UNSPEC,
