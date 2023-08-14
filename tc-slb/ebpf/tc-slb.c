@@ -12,11 +12,14 @@
 char __license[] SEC("license") = "GPL";
 
 #define AF_INET 2
+#define IP_CSUM_OFFSET (sizeof(struct ethhdr) + offsetof(struct iphdr, check))
+#define UDP_CSUM_OFFSET (sizeof(struct ethhdr) + sizeof(struct iphdr) + offsetof(struct udphdr, check))
+#define TCP_CSUM_OFFSET (sizeof(struct ethhdr) + sizeof(struct iphdr) + offsetof(struct tcphdr, check))
 
-__u32 VIP = 0x2540a8c0; // ==> 192.168.64.37
-__u16 VPORT = 0x0F27;   // ==> 9999
-__u32 BIP = 0x2640a8c0; // ==> 192.168.64.38
-__u16 BPORT = 0x1600;   // ==> 22
+__be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
+__u16 VPORT = 0x0F27;    // ==> 9999
+__be32 BIP = 0x2640a8c0; // ==> 192.168.64.38
+__u16 BPORT = 0x1600;    // ==> 22
 
 int tc_process_ipv4(struct __sk_buff *skb)
 {
@@ -50,19 +53,34 @@ int tc_process_ipv4(struct __sk_buff *skb)
     if (iph->daddr == VIP && tcph->dest == VPORT) {
         bpf_printk("%pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
 
+        // __s64 sum = 0;
+        // __be32 old_ip = iph->daddr;
+        // __be32 new_ip = BIP;
+        // sum = bpf_csum_diff(&old_ip, 4, &new_ip, 4, 0);
+        // bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, iph->daddr , BIP, sizeof(BIP));
         iph->daddr = BIP;
+        // bpf_l4_csum_replace(skb, IP_CSUM_OFFSET, 0, sum, BPF_F_PSEUDO_HDR);
         // tcph->dest = BPORT;
-        iph->saddr = VIP;
 
+        // old_ip = iph->saddr;
+        // new_ip = VIP;
+        // sum = bpf_csum_diff(&old_ip, 4, &new_ip, 4, 0);
+        iph->saddr = VIP;
+        // bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, 0, sum, 0);
+        // bpf_l4_csum_replace(skb, IP_CSUM_OFFSET, 0, sum, BPF_F_PSEUDO_HDR);
         // bpf_l4_csum_replace(skb,TCP_CSUM_OFF, );
         bpf_printk("%pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+        // bpf_skc_lookup_tcp();
+
+        // bpf_set_hash_invalid(skb);
+        // bpf_get_hash_recalc(skb);
 
         struct bpf_redir_neigh neigh = {
             .nh_family = AF_INET,
             .ipv4_nh = BIP,
         };
         // memset(&neigh, 0, sizeof(struct bpf_redir_neigh));
-        return bpf_redirect_neigh(2 /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+        return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
     } else if (iph->saddr == BIP && tcph->source == VPORT) {
         bpf_printk("=> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
     } else if (iph->saddr == BIP && tcph->source == BPORT) {
