@@ -90,7 +90,7 @@ func (o *Object) attachTcIngress() {
 		Parent:  helper.BuildHandle(0xffff, tc.HandleMinIngress),
 
 		// Priority = Info&0xFFFF0000 ==> Perf
-		// Protocol = Info&0x0000FFFF ==> ?
+		// Protocol = Info&0x0000FFFF ==> #define ETH_P_ALL 0x0003
 		Info: 0x10300,
 	}, Attribute: tc.Attribute{Kind: "bpf", BPF: &tc.Bpf{
 		FD:    utils.Pointer(uint32(o.objs.TcProcess.FD())),
