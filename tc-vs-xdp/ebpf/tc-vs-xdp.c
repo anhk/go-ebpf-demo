@@ -1,5 +1,4 @@
-
-#include <linux/bpf.h>     // for XDP_PASS
+#include <linux/bpf.h>
 #include <linux/pkt_cls.h> // for TC_ACK_OK
 
 #include "bpf_endian.h"
