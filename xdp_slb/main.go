@@ -31,8 +31,8 @@ type SlbValue struct {
 }
 
 var (
-	vip     = "172.31.129.167:9999"
-	ifName  = "eth0"
+	vip     = "192.168.64.37:9999"
+	ifName  = "enp0s1"
 	backend = []string{
 		"10.244.47.101:80",
 		"10.244.47.102:80",
