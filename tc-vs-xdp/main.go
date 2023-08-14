@@ -4,6 +4,8 @@ import (
 	"go_ebpf_demo/log"
 	"go_ebpf_demo/utils"
 	"net"
+	"os"
+	"os/signal"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
@@ -44,7 +46,7 @@ func main() {
 	// tc
 	tcnl, err := tc.Open(&tc.Config{})
 	utils.Must(err)
-	defer utils.Must(tcnl.Close())
+	defer func() { utils.Must(tcnl.Close()) }()
 
 	// For enhanced error messages from the kernel
 	utils.Must(tcnl.SetOption(netlink.ExtendedAcknowledge, true))
@@ -68,28 +70,39 @@ func main() {
 		Attribute: tc.Attribute{Kind: "clsact"},
 	}
 	utils.Must(tcnl.Qdisc().Add(&qdisc))
-	defer utils.Must(tcnl.Qdisc().Delete(&qdisc)) // tc qdisc del dev enp0s1 clsact
+	defer func() {
+		log.Infof("utils.Must(tcnl.Qdisc().Delete(&qdisc))")
+		utils.Must(tcnl.Qdisc().Delete(&qdisc))
+	}() // tc qdisc del dev enp0s1 clsact
 
-	// info, _ := objs.TcProcess.Info()
-	// filter := tc.Object{
-	// 	Msg: tc.Msg{
-	// 		Family:  unix.AF_UNSPEC,
-	// 		Ifindex: uint32(iface.Index),
-	// 		Handle:  0,
-	// 		Parent:  0xfffffff2,
-	// 		Info:    0x10300,
-	// 	},
-	// 	Attribute: tc.Attribute{
-	// 		Kind: "bpf",
-	// 		BPF: &tc.Bpf{
-	// 			FD:    utils.Pointer(uint32(objs.TcProcess.FD())),
-	// 			Name:  utils.Pointer(info.Name),
-	// 			Flags: utils.Pointer(uint32(0x1)),
-	// 		},
-	// 	},
-	// }
-	// utils.Must(tcnl.Filter().Add(&filter))
-	// defer utils.Must(tcnl.Filter().Delete(&filter))
+	info, _ := objs.TcProcess.Info()
+	filter := tc.Object{
+		Msg: tc.Msg{
+			Family:  unix.AF_UNSPEC,
+			Ifindex: uint32(iface.Index),
+			Handle:  0,
+			Parent:  0xfffffff2,
+			Info:    0x10300,
+		},
+		Attribute: tc.Attribute{
+			Kind: "bpf",
+			BPF: &tc.Bpf{
+				FD:    utils.Pointer(uint32(objs.TcProcess.FD())),
+				Name:  utils.Pointer(info.Name),
+				Flags: utils.Pointer(uint32(0x1)),
+			},
+		},
+	}
 
-	// utils.TraceEBPF()
+	utils.Must(tcnl.Filter().Add(&filter))
+	defer func() {
+		log.Infof("utils.Must(tcnl.Filter().Delete(&filter))")
+		utils.Must(tcnl.Filter().Delete(&filter))
+	}()
+
+	go utils.TraceEBPF()
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
 }
