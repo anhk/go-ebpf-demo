@@ -12,10 +12,17 @@ int xdp_process(struct xdp_md *ctx)
     return XDP_PASS;
 }
 
-SEC("tc")
+SEC("classifier/ingress")
 int tc_process(struct __sk_buff *skb)
 {
     bpf_printk("tc_process");
+    return TC_ACT_OK;
+}
+
+SEC("classifier/egress")
+int tc_egress(struct __sk_buff *skb)
+{
+    bpf_printk("tc_egress");
     return TC_ACT_OK;
 }
 

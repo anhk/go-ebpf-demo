@@ -53,6 +53,7 @@ type ebpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
+	TcEgress   *ebpf.ProgramSpec `ebpf:"tc_egress"`
 	TcProcess  *ebpf.ProgramSpec `ebpf:"tc_process"`
 	XdpProcess *ebpf.ProgramSpec `ebpf:"xdp_process"`
 }
@@ -92,12 +93,14 @@ func (m *ebpfMaps) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfPrograms struct {
+	TcEgress   *ebpf.Program `ebpf:"tc_egress"`
 	TcProcess  *ebpf.Program `ebpf:"tc_process"`
 	XdpProcess *ebpf.Program `ebpf:"xdp_process"`
 }
 
 func (p *ebpfPrograms) Close() error {
 	return _EbpfClose(
+		p.TcEgress,
 		p.TcProcess,
 		p.XdpProcess,
 	)
