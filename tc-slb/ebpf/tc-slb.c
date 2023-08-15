@@ -17,41 +17,15 @@ char __license[] SEC("license") = "GPL";
 #define UDP_CSUM_OFFSET (sizeof(struct ethhdr) + sizeof(struct iphdr) + offsetof(struct udphdr, check))
 #define TCP_CSUM_OFFSET (sizeof(struct ethhdr) + sizeof(struct iphdr) + offsetof(struct tcphdr, check))
 
-unsigned long long load_byte(void *skb, unsigned long long off) asm("llvm.bpf.load.byte");
-unsigned long long load_half(void *skb, unsigned long long off) asm("llvm.bpf.load.half");
-unsigned long long load_word(void *skb, unsigned long long off) asm("llvm.bpf.load.word");
+// unsigned long long load_byte(void *skb, unsigned long long off) asm("llvm.bpf.load.byte");
+// unsigned long long load_half(void *skb, unsigned long long off) asm("llvm.bpf.load.half");
+// unsigned long long load_word(void *skb, unsigned long long off) asm("llvm.bpf.load.word");
 
 __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
 __u16 VPORT = 0x0F27;    // ==> 9999
 __be32 BIP = 0x2640a8c0; // ==> 192.168.64.38
 __u16 BPORT = 0x1600;    // ==> 22
 __be32 SIP = 0x140a8c0;  // 192.168.64.1
-
-int fixup_ip_checksum(struct __sk_buff *skb)
-{
-    if (load_half(skb, offsetof(struct ethhdr, h_proto)) != ETH_P_IP)
-        return 0;
-
-    // Calculate one's complement sum of IP header except checksum word at
-    // offset 24.
-    __u64 checksum = 0;
-    checksum += load_half(skb, 14);
-    checksum += load_word(skb, 16);
-    checksum += load_word(skb, 20);
-    checksum += load_word(skb, 26);
-    checksum += load_word(skb, 30);
-
-    checksum = (checksum & 0xffff) + (checksum >> 16);
-    checksum = (checksum & 0xffff) + (checksum >> 16);
-    checksum = (checksum & 0xffff) + (checksum >> 16);
-
-    // Write back correct checksum in the packet.
-    __u16 checksum16 = bpf_htons(~checksum);
-
-    bpf_skb_store_bytes(skb, IP_CSUM_OFFSET, &checksum16, 2, 0);
-
-    return 0;
-}
 
 int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __be32 sip, __be32 dip)
 {
