@@ -1,0 +1,4 @@
+cgroup-egress:./main.go \
+./ebpf_bpfeb.go \
+./ebpf_bpfel.go \
+

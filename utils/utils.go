@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"runtime/debug"
 )
 
@@ -31,4 +32,10 @@ func TraceEBPF() {
 
 func Pointer[T any](v T) *T {
 	return &v
+}
+
+func WaitInterrupt() {
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
 }

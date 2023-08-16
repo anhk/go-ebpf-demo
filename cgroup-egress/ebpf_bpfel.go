@@ -53,6 +53,8 @@ type ebpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
+	CgroupEgress  *ebpf.ProgramSpec `ebpf:"cgroup_egress"`
+	CgroupIngress *ebpf.ProgramSpec `ebpf:"cgroup_ingress"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -90,10 +92,15 @@ func (m *ebpfMaps) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfPrograms struct {
+	CgroupEgress  *ebpf.Program `ebpf:"cgroup_egress"`
+	CgroupIngress *ebpf.Program `ebpf:"cgroup_ingress"`
 }
 
 func (p *ebpfPrograms) Close() error {
-	return _EbpfClose()
+	return _EbpfClose(
+		p.CgroupEgress,
+		p.CgroupIngress,
+	)
 }
 
 func _EbpfClose(closers ...io.Closer) error {

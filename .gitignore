@@ -25,3 +25,4 @@ go.work
 xdp_slb
 tc-vs-xdp
 tc-slb/tc-slb
+cgroup-egress/cgroup-egress

@@ -9,7 +9,7 @@ $(OBJ):
 	go mod tidy && go build -gcflags "-N -l" -o ${OBJ} ./
 
 generate: ebpf_bpfel.o
-ebpf_bpfel.o: ebpf/tc-slb.c
+ebpf_bpfel.o: ebpf/cgroup-egress.c
 	go generate
 
 clean:

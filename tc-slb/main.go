@@ -4,8 +4,6 @@ import (
 	"go_ebpf_demo/log"
 	"go_ebpf_demo/utils"
 	"net"
-	"os"
-	"os/signal"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -103,7 +101,5 @@ func main() {
 
 	go utils.TraceEBPF()
 
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-	<-ch
+	utils.WaitInterrupt()
 }
