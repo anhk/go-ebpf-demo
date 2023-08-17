@@ -57,10 +57,10 @@ int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __
         .ipv4_nh = dip,
     };
 
-    if (tcph->source == VPORT) {
+    if (tcph->source == VPORT) { // 发往其他节点
         return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
     }
-    return TC_ACT_OK;
+    return TC_ACT_OK; // 发往本节点，可以是IPVLAN或 VEth pair
 }
 
 int tc_process_ipv4(struct __sk_buff *skb)
