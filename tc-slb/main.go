@@ -27,6 +27,7 @@ type Object struct {
 
 	qdisc   *tc.Object
 	ingress *tc.Object
+	egress  *tc.Object
 }
 
 func (o *Object) Load() *Object {
@@ -83,6 +84,28 @@ func (o *Object) attachTcIngress() {
 	utils.Must(o.tcnl.Filter().Add(o.ingress))
 }
 
+func (o *Object) attachTcEgress() {
+	// open TC
+	if o.tcnl == nil {
+		o.openTc()
+	}
+
+	// filter for egress
+	info, _ := o.objs.TcEgress.Info()
+	o.egress = &tc.Object{Msg: tc.Msg{
+		Family:  unix.AF_UNSPEC,
+		Ifindex: uint32(o.iface.Index),
+		Handle:  0,
+		Parent:  helper.BuildHandle(0xffff, tc.HandleMinEgress),
+		Info:    0x10300,
+	}, Attribute: tc.Attribute{Kind: "bpf", BPF: &tc.Bpf{
+		FD:    utils.Pointer(uint32(o.objs.TcEgress.FD())),
+		Name:  utils.Pointer(info.Name),
+		Flags: utils.Pointer(uint32(0x1)),
+	}}}
+	utils.Must(o.tcnl.Filter().Add(o.egress))
+}
+
 func main() {
 
 	utils.Must(rlimit.RemoveMemlock())
@@ -96,6 +119,7 @@ func main() {
 
 	o := (&Object{iface: iface}).Load()
 	o.attachTcIngress()
+	o.attachTcEgress()
 
 	defer func() { o.Close() }()
 

@@ -22,10 +22,16 @@ char __license[] SEC("license") = "GPL";
 // unsigned long long load_word(void *skb, unsigned long long off) asm("llvm.bpf.load.word");
 
 __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
-__u16 VPORT = 0x0F27;    // ==> 9999
-__be32 BIP = 0x2640a8c0; // ==> 192.168.64.38
-__u16 BPORT = 0x1600;    // ==> 22
-__be32 SIP = 0x140a8c0;  // 192.168.64.1
+// __u16 VPORT = 0x0F27;    // ==> 9999
+// __be32 BIP = 0x2640a8c0; // ==> 192.168.64.38
+__u16 BPORT = 0x1600; // ==> 22
+// __be32 SIP = 0x140a8c0;  // 192.168.64.1
+
+// __be32 VIP = 0xDB03610A; // ==> 10.97.3.219
+__u16 VPORT = 0x5000;    // ==> 80
+__be32 BIP = 0x600F40A;  // ==> 10.244.0.6
+__be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
+__be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
 
 int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __be32 sip, __be32 dip)
 {
@@ -50,7 +56,11 @@ int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __
         .nh_family = AF_INET,
         .ipv4_nh = dip,
     };
-    return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+
+    if (tcph->source == VPORT) {
+        return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+    }
+    return TC_ACT_OK;
 }
 
 int tc_process_ipv4(struct __sk_buff *skb)
@@ -83,7 +93,7 @@ int tc_process_ipv4(struct __sk_buff *skb)
     struct tcphdr *tcph = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 
     if (iph->daddr == VIP && tcph->dest == VPORT) {
-        return proxy_ipv4(skb, iph, tcph, VIP, BIP);
+        return proxy_ipv4(skb, iph, tcph, iph->saddr, BIP);
     } else if (iph->saddr == BIP && tcph->source == VPORT) {
         bpf_printk("==> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
         return proxy_ipv4(skb, iph, tcph, VIP, SIP);
@@ -98,6 +108,17 @@ int tc_process_ipv4(struct __sk_buff *skb)
 
 SEC("classifier/ingress")
 int tc_process(struct __sk_buff *skb)
+{
+    if (skb->protocol == 0x0008 /*IPv4*/) {
+        return tc_process_ipv4(skb);
+    } else if (skb->protocol != 0xDD64 /*IPv6*/) {
+        return TC_ACT_OK;
+    }
+    return TC_ACT_OK;
+}
+
+SEC("classifier/egress")
+int tc_egress(struct __sk_buff *skb)
 {
     if (skb->protocol == 0x0008 /*IPv4*/) {
         return tc_process_ipv4(skb);
