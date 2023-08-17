@@ -21,17 +21,11 @@ char __license[] SEC("license") = "GPL";
 // unsigned long long load_half(void *skb, unsigned long long off) asm("llvm.bpf.load.half");
 // unsigned long long load_word(void *skb, unsigned long long off) asm("llvm.bpf.load.word");
 
-__be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
-// __u16 VPORT = 0x0F27;    // ==> 9999
-// __be32 BIP = 0x2640a8c0; // ==> 192.168.64.38
-__u16 BPORT = 0x1600; // ==> 22
-// __be32 SIP = 0x140a8c0;  // 192.168.64.1
-
-// __be32 VIP = 0xDB03610A; // ==> 10.97.3.219
-__u16 VPORT = 0x5000;    // ==> 80
-__be32 BIP = 0x600F40A;  // ==> 10.244.0.6
-__be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
-__be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
+static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
+static __u16 VPORT = 0x5000;    // ==> 80
+static __be32 BIP = 0x400F40A;  // ==> 10.244.0.4
+static __be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
+static __be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
 
 int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __be32 sip, __be32 dip)
 {
@@ -57,9 +51,9 @@ int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __
         .ipv4_nh = dip,
     };
 
-    if (tcph->source == VPORT) { // 发往其他节点
-        return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
-    }
+    // if (tcph->source == VPORT) { // 发往其他节点
+    //     return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+    // }
     return TC_ACT_OK; // 发往本节点，可以是IPVLAN或 VEth pair
 }
 
@@ -97,8 +91,6 @@ int tc_process_ipv4(struct __sk_buff *skb)
     } else if (iph->saddr == BIP && tcph->source == VPORT) {
         bpf_printk("==> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
         return proxy_ipv4(skb, iph, tcph, VIP, SIP);
-    } else if (iph->saddr == BIP && tcph->source == BPORT) {
-        bpf_printk("=> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
     }
 
     // bpf_printk("%x:%x -> %x:%x", iph->saddr, tcph->source, iph->daddr, tcph->dest);
