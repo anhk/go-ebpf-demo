@@ -23,7 +23,7 @@ char __license[] SEC("license") = "GPL";
 
 static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
 static __u16 VPORT = 0x5000;    // ==> 80
-static __be32 BIP = 0x400F40A;  // ==> 10.244.0.4
+static __be32 BIP = 0x6409F40A; // ==> 10.244.9.100
 static __be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
 static __be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
 
@@ -32,7 +32,7 @@ int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __
     if (iph == NULL || tcph == NULL) {
         return TC_ACT_OK;
     }
-    bpf_printk("%pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+    bpf_printk("[1] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
     // tcph->dest = BPORT;
 
     bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, iph->daddr, dip, BPF_F_PSEUDO_HDR | sizeof(dip));
@@ -44,16 +44,22 @@ int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __
     iph->daddr = dip;
     iph->saddr = sip;
 
-    bpf_printk("%pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+    bpf_printk("[2] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
 
     struct bpf_redir_neigh neigh = {
         .nh_family = AF_INET,
         .ipv4_nh = dip,
     };
 
-    // if (tcph->source == VPORT) { // 发往其他节点
-    //     return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
-    // }
+//     if (tcph->source == VPORT) { // 发往其他节点
+//          bpf_printk("to %d",skb->ifindex);
+    //    return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+//   }
+    //    return bpf_redirect_neigh(4/*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
+
+//   bpf_printk("to 4");
+        // return bpf_redirect(4/*flannel.1*/, 0);
+
     return TC_ACT_OK; // 发往本节点，可以是IPVLAN或 VEth pair
 }
 
@@ -87,7 +93,7 @@ int tc_process_ipv4(struct __sk_buff *skb)
     struct tcphdr *tcph = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 
     if (iph->daddr == VIP && tcph->dest == VPORT) {
-        return proxy_ipv4(skb, iph, tcph, iph->saddr, BIP);
+        return proxy_ipv4(skb, iph, tcph, LIP, BIP);
     } else if (iph->saddr == BIP && tcph->source == VPORT) {
         bpf_printk("==> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
         return proxy_ipv4(skb, iph, tcph, VIP, SIP);

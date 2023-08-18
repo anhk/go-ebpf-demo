@@ -23,6 +23,7 @@ go.work
 /.vscode
 /.idea
 xdp_slb
-tc-vs-xdp
+tc-vs-xdp/tc-vs-xdp
 tc-slb/tc-slb
 cgroup-egress/cgroup-egress
+trace-pkts/trace-pkts
