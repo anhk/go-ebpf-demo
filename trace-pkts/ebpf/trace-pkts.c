@@ -49,25 +49,32 @@ static inline int do_trace(struct pt_regs *ctx, struct sk_buff *skb, const char 
 }
 
 /*************************************************************************************/
-SEC("kprobe/__netif_receive_skb")
+SEC("kprobe/__netif_receive_skb") // 没命中
 int k__netif_receive_skb(struct pt_regs *ctx)
 {
     struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
     return do_trace(ctx, skb, "__netif_receive_skb");
 }
 
-SEC("kprobe/__netif_receive_skb_one_core")
+SEC("kprobe/__netif_receive_skb_one_core") // 没命中
 int k__netif_receive_skb_one_core(struct pt_regs *ctx)
 {
     struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
     return do_trace(ctx, skb, "__netif_receive_skb_one_core");
 }
 
-SEC("kprobe/netif_receive_skb_core")
+SEC("kprobe/netif_receive_skb_core") // 没命中
 int k_netif_receive_skb_core(struct pt_regs *ctx)
 {
     struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
     return do_trace(ctx, skb, "netif_receive_skb_core");
+}
+
+SEC("tracepoint/net/netif_receive_skb")
+int t_netif_receive_skb(struct trace_event_raw_net_dev_template *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)ctx->skbaddr;
+    return do_trace(NULL, skb, "netif_receive_skb");
 }
 
 SEC("kprobe/ip_rcv_core")

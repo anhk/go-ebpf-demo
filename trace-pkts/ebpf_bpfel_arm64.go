@@ -62,6 +62,7 @@ type ebpfProgramSpecs struct {
 	K_netifReceiveSkbCore     *ebpf.ProgramSpec `ebpf:"k_netif_receive_skb_core"`
 	K_tcpFilter               *ebpf.ProgramSpec `ebpf:"k_tcp_filter"`
 	K_tcpV4DoRcv              *ebpf.ProgramSpec `ebpf:"k_tcp_v4_do_rcv"`
+	T_netifReceiveSkb         *ebpf.ProgramSpec `ebpf:"t_netif_receive_skb"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -108,6 +109,7 @@ type ebpfPrograms struct {
 	K_netifReceiveSkbCore     *ebpf.Program `ebpf:"k_netif_receive_skb_core"`
 	K_tcpFilter               *ebpf.Program `ebpf:"k_tcp_filter"`
 	K_tcpV4DoRcv              *ebpf.Program `ebpf:"k_tcp_v4_do_rcv"`
+	T_netifReceiveSkb         *ebpf.Program `ebpf:"t_netif_receive_skb"`
 }
 
 func (p *ebpfPrograms) Close() error {
@@ -121,6 +123,7 @@ func (p *ebpfPrograms) Close() error {
 		p.K_netifReceiveSkbCore,
 		p.K_tcpFilter,
 		p.K_tcpV4DoRcv,
+		p.T_netifReceiveSkb,
 	)
 }
 

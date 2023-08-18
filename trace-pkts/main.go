@@ -10,9 +10,15 @@ import (
 
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -target arm64 ebpf ebpf/trace-pkts.c -- -I ../inc
 
-type AttachMap struct {
+type KProbeMap struct {
 	symbol string
 	prog   *ebpf.Program
+}
+
+type TracepointMap struct {
+	group string
+	name  string
+	prog  *ebpf.Program
 }
 
 type Object struct {
@@ -24,8 +30,13 @@ func (o *Object) Load() *Object {
 	return o
 }
 
-func (o *Object) AttachKprobe(m *AttachMap) {
+func (o *Object) AttachKprobe(m *KProbeMap) {
 	_, err := link.Kprobe(m.symbol, m.prog, nil)
+	utils.Must(err)
+}
+
+func (o *Object) AttachTracepoint(t *TracepointMap) {
+	_, err := link.Tracepoint(t.group, t.name, t.prog, nil)
 	utils.Must(err)
 }
 
@@ -35,7 +46,7 @@ func main() {
 
 	o := (&Object{}).Load()
 
-	attachMap := []AttachMap{
+	kprobeMap := []KProbeMap{
 		{"__netif_receive_skb", o.objs.K__netifReceiveSkb},
 		{"netif_receive_skb_core", o.objs.K_netifReceiveSkbCore},
 		{"__netif_receive_skb_one_core", o.objs.K__netifReceiveSkbOneCore},
@@ -47,8 +58,16 @@ func main() {
 		{"tcp_filter", o.objs.K_tcpFilter},
 	}
 
-	for _, m := range attachMap {
+	tracepointMap := []TracepointMap{
+		{"net", "netif_receive_skb", o.objs.T_netifReceiveSkb},
+	}
+
+	for _, m := range kprobeMap {
 		o.AttachKprobe(&m)
+	}
+
+	for _, t := range tracepointMap {
+		o.AttachTracepoint(&t)
 	}
 
 	go utils.TraceEBPF()
