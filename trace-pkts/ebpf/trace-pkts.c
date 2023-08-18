@@ -14,6 +14,11 @@ static __u16 DSTPORT = 0x5000;    // ==> 80
 // static __u16 DSTPORT = 0x2B19;    // ==> 6443
 static __be32 SRCIP = 0x2740A8C0; // ==> 192.168.64.39
 
+// static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
+// static __u16 VPORT = 0x5000;    // ==> 80
+static __be32 BACKIP = 0x6409F40A; // ==> 10.244.9.100
+// static __be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
+// static __be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
 /*************************************************************************************/
 static inline int do_trace(struct pt_regs *ctx, struct sk_buff *skb, const char *func_name)
 {
@@ -42,7 +47,7 @@ static inline int do_trace(struct pt_regs *ctx, struct sk_buff *skb, const char 
     __u16 dport = BPF_CORE_READ(tcph, dest);
     __be32 seq = BPF_CORE_READ(tcph,seq); 
 
-    if (daddr == DSTIP && dport == DSTPORT) {
+    if ((daddr == BACKIP || daddr == DSTIP) && dport == DSTPORT) {
         bpf_printk("%s ==>[%u] %pI4:%d -> %pI4:%d", func_name, seq, &saddr, bpf_ntohs(sport), &daddr, bpf_ntohs(dport));
     }
     return 0;
