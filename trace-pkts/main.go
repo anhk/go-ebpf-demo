@@ -33,14 +33,22 @@ func main() {
 	utils.Must(rlimit.RemoveMemlock())
 	utils.Must(utils.MountBPF())
 
-	objs := (&Object{}).Load()
+	o := (&Object{}).Load()
 
 	attachMap := []AttachMap{
-		{"__netif_receive_skb", objs.objs.K__netifReceiveSkb},
+		{"__netif_receive_skb", o.objs.K__netifReceiveSkb},
+		{"netif_receive_skb_core", o.objs.K_netifReceiveSkbCore},
+		{"__netif_receive_skb_one_core", o.objs.K__netifReceiveSkbOneCore},
+		{"ip_rcv_core", o.objs.K_ipRcvCore},
+		{"ip_rcv_finish", o.objs.K_ipRcvFinish},
+		{"ip_forward", o.objs.K_ipForward},
+		{"ip_forward_finish", o.objs.K_ipForwardFinish},
+		{"tcp_v4_do_rcv", o.objs.K_tcpV4DoRcv},
+		{"tcp_filter", o.objs.K_tcpFilter},
 	}
 
 	for _, m := range attachMap {
-		objs.AttachKprobe(&m)
+		o.AttachKprobe(&m)
 	}
 
 	go utils.TraceEBPF()

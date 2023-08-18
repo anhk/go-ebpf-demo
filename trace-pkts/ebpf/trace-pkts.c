@@ -40,11 +40,11 @@ static inline int do_trace(struct pt_regs *ctx, struct sk_buff *skb, const char 
 
     __u16 sport = BPF_CORE_READ(tcph, source);
     __u16 dport = BPF_CORE_READ(tcph, dest);
+    __be32 seq = BPF_CORE_READ(tcph,seq); 
 
     if (daddr == DSTIP && dport == DSTPORT) {
-        bpf_printk("%s ==> %pI4:%d -> %pI4:%d", func_name, &saddr, bpf_ntohs(sport), &daddr, bpf_ntohs(dport));
+        bpf_printk("%s ==>[%u] %pI4:%d -> %pI4:%d", func_name, seq, &saddr, bpf_ntohs(sport), &daddr, bpf_ntohs(dport));
     }
-
     return 0;
 }
 
@@ -54,4 +54,60 @@ int k__netif_receive_skb(struct pt_regs *ctx)
 {
     struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
     return do_trace(ctx, skb, "__netif_receive_skb");
+}
+
+SEC("kprobe/__netif_receive_skb_one_core")
+int k__netif_receive_skb_one_core(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
+    return do_trace(ctx, skb, "__netif_receive_skb_one_core");
+}
+
+SEC("kprobe/netif_receive_skb_core")
+int k_netif_receive_skb_core(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
+    return do_trace(ctx, skb, "netif_receive_skb_core");
+}
+
+SEC("kprobe/ip_rcv_core")
+int k_ip_rcv_core(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
+    return do_trace(ctx, skb, "ip_rcv_core");
+}
+
+SEC("kprobe/ip_rcv_finish")
+int k_ip_rcv_finish(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM3(ctx);
+    return do_trace(ctx, skb, "ip_rcv_finish");
+}
+
+SEC("kprobe/ip_forward")
+int k_ip_forward(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM1(ctx);
+    return do_trace(ctx, skb, "ip_forward");
+}
+
+SEC("kprobe/ip_forward_finish")
+int k_ip_forward_finish(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM3(ctx);
+    return do_trace(ctx, skb, "ip_forward_finish");
+}
+
+SEC("kprobe/tcp_v4_do_rcv")
+int k_tcp_v4_do_rcv(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM2(ctx);
+    return do_trace(ctx, skb, "tcp_v4_do_rcv");
+}
+
+SEC("kprobe/tcp_filter")
+int k_tcp_filter(struct pt_regs *ctx)
+{
+    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM2(ctx);
+    return do_trace(ctx, skb, "tcp_filter");
 }

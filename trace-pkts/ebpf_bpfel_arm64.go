@@ -53,7 +53,15 @@ type ebpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
-	K__netifReceiveSkb *ebpf.ProgramSpec `ebpf:"k__netif_receive_skb"`
+	K__netifReceiveSkb        *ebpf.ProgramSpec `ebpf:"k__netif_receive_skb"`
+	K__netifReceiveSkbOneCore *ebpf.ProgramSpec `ebpf:"k__netif_receive_skb_one_core"`
+	K_ipForward               *ebpf.ProgramSpec `ebpf:"k_ip_forward"`
+	K_ipForwardFinish         *ebpf.ProgramSpec `ebpf:"k_ip_forward_finish"`
+	K_ipRcvCore               *ebpf.ProgramSpec `ebpf:"k_ip_rcv_core"`
+	K_ipRcvFinish             *ebpf.ProgramSpec `ebpf:"k_ip_rcv_finish"`
+	K_netifReceiveSkbCore     *ebpf.ProgramSpec `ebpf:"k_netif_receive_skb_core"`
+	K_tcpFilter               *ebpf.ProgramSpec `ebpf:"k_tcp_filter"`
+	K_tcpV4DoRcv              *ebpf.ProgramSpec `ebpf:"k_tcp_v4_do_rcv"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -91,12 +99,28 @@ func (m *ebpfMaps) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfPrograms struct {
-	K__netifReceiveSkb *ebpf.Program `ebpf:"k__netif_receive_skb"`
+	K__netifReceiveSkb        *ebpf.Program `ebpf:"k__netif_receive_skb"`
+	K__netifReceiveSkbOneCore *ebpf.Program `ebpf:"k__netif_receive_skb_one_core"`
+	K_ipForward               *ebpf.Program `ebpf:"k_ip_forward"`
+	K_ipForwardFinish         *ebpf.Program `ebpf:"k_ip_forward_finish"`
+	K_ipRcvCore               *ebpf.Program `ebpf:"k_ip_rcv_core"`
+	K_ipRcvFinish             *ebpf.Program `ebpf:"k_ip_rcv_finish"`
+	K_netifReceiveSkbCore     *ebpf.Program `ebpf:"k_netif_receive_skb_core"`
+	K_tcpFilter               *ebpf.Program `ebpf:"k_tcp_filter"`
+	K_tcpV4DoRcv              *ebpf.Program `ebpf:"k_tcp_v4_do_rcv"`
 }
 
 func (p *ebpfPrograms) Close() error {
 	return _EbpfClose(
 		p.K__netifReceiveSkb,
+		p.K__netifReceiveSkbOneCore,
+		p.K_ipForward,
+		p.K_ipForwardFinish,
+		p.K_ipRcvCore,
+		p.K_ipRcvFinish,
+		p.K_netifReceiveSkbCore,
+		p.K_tcpFilter,
+		p.K_tcpV4DoRcv,
 	)
 }
 
