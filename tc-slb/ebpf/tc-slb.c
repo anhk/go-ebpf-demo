@@ -119,7 +119,7 @@ int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *
         .port = VPORT,
     };
 
-    skb->mark |= 0x0F00;
+    skb->mark |= MAGIC_MASK;
     bpf_map_update_elem(&conn_map, key, &value, BPF_NOEXIST);
 
     // => SNAT: 10.244.0.9->192.168.64.39 => 192.168.64.37->192.168.64.39
@@ -144,7 +144,7 @@ int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *t
     if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
         return TC_ACT_OK;
     }
-    if (!(skb->mark & 0x0F00)) {
+    if (!(skb->mark & MAGIC_MASK)) {
         return TC_ACT_OK;
     }
 

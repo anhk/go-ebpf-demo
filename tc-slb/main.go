@@ -53,6 +53,16 @@ func (o *Object) openTc() { // tc
 	utils.Must(tcnl.SetOption(netlink.ExtendedAcknowledge, true))
 	o.tcnl = tcnl
 
+	objs, err := tcnl.Qdisc().Get()
+	utils.Must(err)
+	for _, obj := range objs {
+		// log.Infof("kind: %v", obj.Attribute.Kind)
+		if obj.Attribute.Kind == "clsact" {
+			o.qdisc = &obj
+			return
+		}
+	}
+
 	// qdisc for ingress
 	o.qdisc = &tc.Object{Msg: tc.Msg{
 		Family:  unix.AF_UNSPEC,
