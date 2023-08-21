@@ -4,6 +4,7 @@ import (
 	"go_ebpf_demo/log"
 	"go_ebpf_demo/utils"
 	"net"
+	"os"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -31,7 +32,10 @@ type Object struct {
 }
 
 func (o *Object) Load() *Object {
-	utils.Must(loadEbpfObjects(&o.objs, &ebpf.CollectionOptions{}))
+	os.Mkdir("/sys/fs/bpf/tc-slb", 0755)
+	utils.Must(loadEbpfObjects(&o.objs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{PinPath: "/sys/fs/bpf/tc-slb"},
+	}))
 	return o
 }
 

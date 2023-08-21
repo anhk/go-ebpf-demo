@@ -20,6 +20,35 @@ char __license[] SEC("license") = "GPL";
 // unsigned long long load_byte(void *skb, unsigned long long off) asm("llvm.bpf.load.byte");
 // unsigned long long load_half(void *skb, unsigned long long off) asm("llvm.bpf.load.half");
 // unsigned long long load_word(void *skb, unsigned long long off) asm("llvm.bpf.load.word");
+#define MAX_CONN_ENTRIES 65536
+#define MAGIC_MASK 0x0F00
+#define INGRESS 1
+#define EGRESS 2
+
+struct sock_key {
+    __be32 saddr;  // 192.168.64.1
+    __be16 sport;  // 30001
+    __be16 pad1;   //
+    __be32 daddr;  // 192.168.64.37
+    __be16 dport;  // 80
+    __u8 protocol; // TCP
+    __u8 pad2;     //
+};
+
+struct sock_value {
+    __be32 addr; // 192.168.64.1
+    __be16 port; // 30000
+    __be16 pad1;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct sock_key);
+    __type(value, struct sock_value);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+    __uint(max_entries, MAX_CONN_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} conn_map SEC(".maps");
 
 static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
 static __u16 VPORT = 0x5000;    // ==> 80
@@ -27,43 +56,140 @@ static __be32 BIP = 0x6409F40A; // ==> 10.244.9.100
 static __be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
 static __be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
 
-int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, __be32 sip, __be32 dip)
+// sch_handle_ingress
+// tc_cls_act_is_valid_access, skb->family到skb->localport不可访问
+
+int try_do_dnat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_value *value)
 {
-    if (iph == NULL || tcph == NULL) {
+    if (skb == NULL || iph == NULL || tcph == NULL || value == NULL) {
         return TC_ACT_OK;
     }
-    bpf_printk("[1] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
-    // tcph->dest = BPORT;
 
-    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, iph->daddr, dip, BPF_F_PSEUDO_HDR | sizeof(dip));
-    bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, iph->daddr, dip, sizeof(dip));
+    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, iph->daddr, value->addr, BPF_F_PSEUDO_HDR | sizeof(value->addr));
+    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, tcph->dest, value->port, sizeof(value->port));
+    bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, iph->daddr, value->addr, sizeof(value->addr));
 
-    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, iph->saddr, sip, BPF_F_PSEUDO_HDR | sizeof(sip));
-    bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, iph->saddr, sip, sizeof(sip));
+    bpf_printk("[DNAT-F] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+    iph->daddr = value->addr;
+    tcph->dest = value->port;
+    bpf_printk("[DNAT-T] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
 
-    iph->daddr = dip;
-    iph->saddr = sip;
-
-    bpf_printk("[2] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
-
-    struct bpf_redir_neigh neigh = {
-        .nh_family = AF_INET,
-        .ipv4_nh = dip,
-    };
-
-//     if (tcph->source == VPORT) { // 发往其他节点
-//          bpf_printk("to %d",skb->ifindex);
-    //    return bpf_redirect_neigh(skb->ifindex /*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
-//   }
-    //    return bpf_redirect_neigh(4/*enp0s1*/, &neigh, sizeof(struct bpf_redir_neigh), 0);
-
-//   bpf_printk("to 4");
-        // return bpf_redirect(4/*flannel.1*/, 0);
-
-    return TC_ACT_OK; // 发往本节点，可以是IPVLAN或 VEth pair
+    return TC_ACT_OK;
 }
 
-int tc_process_ipv4(struct __sk_buff *skb)
+int try_do_snat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_value *value)
+{
+    if (skb == NULL || iph == NULL || tcph == NULL || value == NULL) {
+        return TC_ACT_OK;
+    }
+
+    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, iph->saddr, value->addr, BPF_F_PSEUDO_HDR | sizeof(value->addr));
+    bpf_l4_csum_replace(skb, TCP_CSUM_OFFSET, tcph->source, value->port, sizeof(value->port));
+    bpf_l3_csum_replace(skb, IP_CSUM_OFFSET, iph->saddr, value->addr, sizeof(value->addr));
+
+    bpf_printk("[SNAT-F] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+    iph->saddr = value->addr;
+    tcph->source = value->port;
+    bpf_printk("[SNAT-T] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+
+    return TC_ACT_OK;
+}
+
+
+// ---------------  key  ---------------------  value ------------------
+// -> DNAT: 192.168.64.39->192.168.64.37 ==> 192.168.64.39->10.244.0.9
+// -> SNAT: 192.168.64.39->10.244.0.9 ==> 192.168.64.37->10.244.0.9
+// => DNAT: 10.244.0.9->192.168.64.37 => 10.244.0.9->192.168.64.39
+// => SNAT: 10.244.0.9->192.168.64.39 => 192.168.64.37->192.168.64.39
+
+int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key)
+{
+    if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
+        return TC_ACT_OK;
+    }
+    if (iph->daddr != VIP || tcph->dest != VPORT) {
+        return TC_ACT_OK;
+    }
+    // TODO: 新连接，需要检查SYN
+    bpf_printk("[N-I] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+
+    // -> DNAT: 192.168.64.39->192.168.64.37 ==> 192.168.64.39->10.244.0.9
+    struct sock_value value = {
+        .addr = BIP,
+        .port = VPORT,
+    };
+
+    skb->mark |= 0x0F00;
+    bpf_map_update_elem(&conn_map, key, &value, BPF_NOEXIST);
+
+    // => SNAT: 10.244.0.9->192.168.64.39 => 192.168.64.37->192.168.64.39
+    struct sock_key nkey = {
+        .saddr = value.addr,
+        .sport = value.port,
+        .daddr = iph->saddr,
+        .dport = tcph->source,
+        .protocol = iph->protocol,
+    };
+
+    struct sock_value nvalue = {
+        .addr = VIP,
+        .port = VPORT,
+    };
+    bpf_map_update_elem(&conn_map, &nkey, &nvalue, BPF_NOEXIST);
+    return try_do_dnat(skb, iph, tcph, &value);
+}
+
+int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key)
+{
+    if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
+        return TC_ACT_OK;
+    }
+    if (!(skb->mark & 0x0F00)) {
+        return TC_ACT_OK;
+    }
+
+    bpf_printk("[N-E] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
+    
+    // -> SNAT: 192.168.64.39->10.244.0.9 ==> 192.168.64.37->10.244.0.9
+    struct sock_value value = {
+        .addr = LIP,
+        .port = tcph->source,
+    };
+
+    bpf_map_update_elem(&conn_map, key, &value, BPF_NOEXIST);
+
+    // => DNAT: 10.244.0.9->192.168.64.37 => 10.244.0.9->192.168.64.39
+    struct sock_key nkey = {
+        .daddr = value.addr,
+        .dport = value.port,
+        .saddr = iph->daddr,
+        .sport = tcph->dest,
+        .protocol = iph->protocol,
+    };
+
+    struct sock_value nvalue = {
+        .addr = iph->saddr,
+        .port = tcph->source,
+    };
+    bpf_map_update_elem(&conn_map, &nkey, &nvalue, BPF_NOEXIST);
+
+    return try_do_snat(skb, iph, tcph, &value);
+}
+
+int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key, int direction)
+{
+    if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
+        return TC_ACT_OK;
+    }
+
+    if (direction == INGRESS) { // INGRESS
+        return proxy_ipv4_ingress(skb, iph, tcph, key);
+    } else { // EGRESS
+        return proxy_ipv4_egress(skb, iph, tcph, key);
+    }
+}
+
+int tc_process_ipv4(struct __sk_buff *skb, int direction)
 {
     void *data = (void *)(long)skb->data;
     void *data_end = (void *)(long)skb->data_end;
@@ -92,24 +218,32 @@ int tc_process_ipv4(struct __sk_buff *skb)
 
     struct tcphdr *tcph = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 
-    if (iph->daddr == VIP && tcph->dest == VPORT) {
-        return proxy_ipv4(skb, iph, tcph, LIP, BIP);
-    } else if (iph->saddr == BIP && tcph->source == VPORT) {
-        bpf_printk("==> %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
-        return proxy_ipv4(skb, iph, tcph, VIP, SIP);
+    struct sock_key key = {
+        .daddr = iph->daddr,
+        .dport = tcph->dest,
+        .saddr = iph->saddr,
+        .sport = tcph->source,
+        .protocol = iph->protocol,
+    };
+
+    struct sock_value *value = (struct sock_value *)bpf_map_lookup_elem(&conn_map, &key);
+    if (value == NULL) {
+        return proxy_ipv4(skb, iph, tcph, &key, direction);
     }
 
-    // bpf_printk("%x:%x -> %x:%x", iph->saddr, tcph->source, iph->daddr, tcph->dest);
-
-    return TC_ACT_OK;
+    int ok = (direction == INGRESS) ? try_do_dnat(skb, iph, tcph, value) : try_do_snat(skb, iph, tcph, value);
+    if (tcph->fin || tcph->rst) { // 删除连接: FIXME，要处理四次挥手，加 TIME_WAIT ？
+        // bpf_map_delete_elem(&conn_map, &key);
+    }
+    return ok;
 }
 
 SEC("classifier/ingress")
 int tc_process(struct __sk_buff *skb)
 {
     if (skb->protocol == 0x0008 /*IPv4*/) {
-        return tc_process_ipv4(skb);
-    } else if (skb->protocol != 0xDD64 /*IPv6*/) {
+        return tc_process_ipv4(skb, INGRESS);
+    } else if (skb->protocol != 0xDD64 /*IPv6*/) { // 暂不处理
         return TC_ACT_OK;
     }
     return TC_ACT_OK;
@@ -119,8 +253,8 @@ SEC("classifier/egress")
 int tc_egress(struct __sk_buff *skb)
 {
     if (skb->protocol == 0x0008 /*IPv4*/) {
-        return tc_process_ipv4(skb);
-    } else if (skb->protocol != 0xDD64 /*IPv6*/) {
+        return tc_process_ipv4(skb, EGRESS);
+    } else if (skb->protocol != 0xDD64 /*IPv6*/) { // 暂不处理
         return TC_ACT_OK;
     }
     return TC_ACT_OK;

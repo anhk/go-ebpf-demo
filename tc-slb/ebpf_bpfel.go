@@ -12,6 +12,22 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type ebpfSockKey struct {
+	Saddr    uint32
+	Sport    uint16
+	Pad1     uint16
+	Daddr    uint32
+	Dport    uint16
+	Protocol uint8
+	Pad2     uint8
+}
+
+type ebpfSockValue struct {
+	Addr uint32
+	Port uint16
+	Pad1 uint16
+}
+
 // loadEbpf returns the embedded CollectionSpec for ebpf.
 func loadEbpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_EbpfBytes)
@@ -61,6 +77,7 @@ type ebpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfMapSpecs struct {
+	ConnMap *ebpf.MapSpec `ebpf:"conn_map"`
 }
 
 // ebpfObjects contains all objects after they have been loaded into the kernel.
@@ -82,10 +99,13 @@ func (o *ebpfObjects) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfMaps struct {
+	ConnMap *ebpf.Map `ebpf:"conn_map"`
 }
 
 func (m *ebpfMaps) Close() error {
-	return _EbpfClose()
+	return _EbpfClose(
+		m.ConnMap,
+	)
 }
 
 // ebpfPrograms contains all programs after they have been loaded into the kernel.
