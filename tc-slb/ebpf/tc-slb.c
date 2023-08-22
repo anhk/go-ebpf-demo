@@ -42,12 +42,13 @@ struct sock_value {
 };
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __type(key, struct sock_key);
     __type(value, struct sock_value);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-    __uint(max_entries, MAX_CONN_ENTRIES);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, MAX_CONN_ENTRIES); 
+    // __uint(map_flags, BPF_F_NO_PREALLOC); 
+    // --- htab_map_alloc_check 函数中检查，BPF_MAP_TYPE_LRU_HASH类型的Map不能有BPF_F_NO_PREALLOC标记
 } conn_map SEC(".maps");
 
 static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
