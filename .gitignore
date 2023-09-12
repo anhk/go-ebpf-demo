@@ -29,3 +29,4 @@ cgroup-egress/cgroup-egress
 trace-pkts/trace-pkts
 /tail_call_test/s1/s1
 /tail_call_test/s2/s2
+perf/pftest

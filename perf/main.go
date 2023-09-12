@@ -36,5 +36,8 @@ func main() {
 		}
 	}()
 
-	utils.TraceEBPF()
+	go utils.TraceEBPF()
+	utils.WaitInterrupt()
+
+	objs.ebpfMaps.Events.Unpin()
 }
