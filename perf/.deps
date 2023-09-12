@@ -1,0 +1,4 @@
+pftest:./main.go \
+./ebpf_bpfel.go \
+./ebpf_bpfeb.go \
+
