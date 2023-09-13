@@ -53,6 +53,8 @@ type ebpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
+	InetSockSetState *ebpf.ProgramSpec `ebpf:"inet_sock_set_state"`
+	SockConnect4     *ebpf.ProgramSpec `ebpf:"sock_connect4"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -90,10 +92,15 @@ func (m *ebpfMaps) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfPrograms struct {
+	InetSockSetState *ebpf.Program `ebpf:"inet_sock_set_state"`
+	SockConnect4     *ebpf.Program `ebpf:"sock_connect4"`
 }
 
 func (p *ebpfPrograms) Close() error {
-	return _EbpfClose()
+	return _EbpfClose(
+		p.InetSockSetState,
+		p.SockConnect4,
+	)
 }
 
 func _EbpfClose(closers ...io.Closer) error {
