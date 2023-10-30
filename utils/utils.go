@@ -18,7 +18,9 @@ func Must(e any) {
 }
 
 func TraceEBPF() {
-	f, _ := os.OpenFile("/sys/kernel/debug/tracing/trace_pipe", os.O_RDONLY, os.ModePerm)
+	f, err := os.OpenFile("/sys/kernel/debug/tracing/trace_pipe", os.O_RDONLY, os.ModePerm)
+	Must(err)
+
 	defer f.Close()
 	reader := bufio.NewReader(f)
 	for {
