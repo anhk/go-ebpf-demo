@@ -32,3 +32,4 @@ trace-pkts/trace-pkts
 perf/pftest
 inet-sock-set-state/setstate
 atomic/atomic
+tos/tos
