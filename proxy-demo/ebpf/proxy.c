@@ -52,8 +52,8 @@ int sock_egress(struct __sk_buff *skb)
     if (skb->sk == NULL) {
         return SK_PASS;
     }
-    if (skb->protocol != bpf_ntohs(ETH_P_IP)){
-          return SK_PASS;
+    if (skb->protocol != bpf_ntohs(ETH_P_IP)) {
+        return SK_PASS;
     }
 
     void *sk = skb->sk;
@@ -69,6 +69,6 @@ int sock_egress(struct __sk_buff *skb)
     // bpf_clone_redirect(skb, skb->ifindex, 0);
 
     bpf_printk("found, ifindex: %d, ingress_ifindex: %d", skb->ifindex, skb->ingress_ifindex);
-    bpf_printk(" -- %pI4 -> %pI4", &iph->saddr, &iph->daddr);
+    bpf_printk(" -- %pI4 -> %pI4 len: %d", &iph->saddr, &iph->daddr, bpf_ntohs(iph->tot_len));
     return SK_PASS;
 }
