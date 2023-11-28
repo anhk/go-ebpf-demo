@@ -33,3 +33,4 @@ perf/pftest
 inet-sock-set-state/setstate
 atomic/atomic
 tos/tos
+proxy-demo/proxy

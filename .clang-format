@@ -1,7 +1,7 @@
 ---
 Language:        Cpp
 BasedOnStyle:    LLVM
-ColumnLimit:     120
+ColumnLimit:     128
 IndentWidth:     4
 TabWidth:        4
 UseCRLF:         false
@@ -15,7 +15,7 @@ IncludeCategories:
   - Regex:  '.*'
     Priority:   4
 AllowShortFunctionsOnASingleLine: InlineOnly
-AlignEscapedNewlines: DontAlign
+AlignEscapedNewlines: Left
 AllowShortBlocksOnASingleLine: Always
 
 ---
