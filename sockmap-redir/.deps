@@ -1,0 +1,4 @@
+redir:\
+./ebpf_bpfel.go \
+./main.go \
+
