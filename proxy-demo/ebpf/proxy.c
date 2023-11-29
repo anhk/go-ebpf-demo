@@ -82,6 +82,9 @@ static int sock_process(struct __sk_buff *skb)
     bpf_printk("found, ifindex: %d, ingress_ifindex: %d", skb->ifindex, skb->ingress_ifindex);
     bpf_printk(" -- %pI4 -> %pI4 iph: %d, len: %d", &iph->saddr, &iph->daddr, len, bpf_ntohs(iph->tot_len));
 
+    // :permission denied: cannot write into packet
+    // iph->tos = 0xF0;
+
     struct tcphdr *tcph = ensure_header(skb, len, struct tcphdr);
     // bpf_printk("[%d-%d]", bpf_ntohs(tcph->source), bpf_ntohs(tcph->dest));
     bpf_printk("syn:%d, psh:%d, ack:%d, fin:%d, rst:%d", tcph->syn, tcph->psh, tcph->ack, tcph->fin, tcph->rst);
