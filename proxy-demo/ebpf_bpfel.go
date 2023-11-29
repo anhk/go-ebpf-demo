@@ -12,6 +12,8 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type ebpfValue struct{ Count int32 }
+
 // loadEbpf returns the embedded CollectionSpec for ebpf.
 func loadEbpf() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_EbpfBytes)
@@ -55,6 +57,7 @@ type ebpfSpecs struct {
 type ebpfProgramSpecs struct {
 	SockConnect4 *ebpf.ProgramSpec `ebpf:"sock_connect4"`
 	SockEgress   *ebpf.ProgramSpec `ebpf:"sock_egress"`
+	SockIngress  *ebpf.ProgramSpec `ebpf:"sock_ingress"`
 }
 
 // ebpfMapSpecs contains maps before they are loaded into the kernel.
@@ -98,12 +101,14 @@ func (m *ebpfMaps) Close() error {
 type ebpfPrograms struct {
 	SockConnect4 *ebpf.Program `ebpf:"sock_connect4"`
 	SockEgress   *ebpf.Program `ebpf:"sock_egress"`
+	SockIngress  *ebpf.Program `ebpf:"sock_ingress"`
 }
 
 func (p *ebpfPrograms) Close() error {
 	return _EbpfClose(
 		p.SockConnect4,
 		p.SockEgress,
+		p.SockIngress,
 	)
 }
 

@@ -34,6 +34,14 @@ func main() {
 	utils.Must(err)
 	defer l2.Close()
 
+	l3, err := link.AttachCgroup(link.CgroupOptions{
+		Path:    "/sys/fs/cgroup",
+		Attach:  ebpf.AttachCGroupInetIngress,
+		Program: objs.SockIngress,
+	})
+	utils.Must(err)
+	defer l3.Close()
+
 	go utils.TraceEBPF()
 	utils.WaitInterrupt()
 }
