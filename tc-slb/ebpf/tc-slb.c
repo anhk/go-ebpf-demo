@@ -25,17 +25,17 @@ char __license[] SEC("license") = "GPL";
 #define INGRESS 1
 #define EGRESS 2
 
-struct sock_key {
+struct tuple_t {
     __be32 saddr;  // 192.168.64.1
-    __be16 sport;  // 30001
-    __be16 pad1;   //
     __be32 daddr;  // 192.168.64.37
+    __be16 sport;  // 30001
     __be16 dport;  // 80
     __u8 protocol; // TCP
-    __u8 pad2;     //
+    __u8 pad;      //
+    __be16 pad2;   //
 };
 
-struct sock_value {
+struct entry_t {
     __be32 addr; // 192.168.64.1
     __be16 port; // 30000
     __be16 pad1;
@@ -43,24 +43,23 @@ struct sock_value {
 
 struct {
     __uint(type, BPF_MAP_TYPE_LRU_HASH);
-    __type(key, struct sock_key);
-    __type(value, struct sock_value);
+    __type(key, struct tuple_t);
+    __type(value, struct entry_t);
     __uint(pinning, LIBBPF_PIN_BY_NAME);
-    __uint(max_entries, MAX_CONN_ENTRIES); 
-    // __uint(map_flags, BPF_F_NO_PREALLOC); 
+    __uint(max_entries, MAX_CONN_ENTRIES);
+    // __uint(map_flags, BPF_F_NO_PREALLOC);
     // --- htab_map_alloc_check 函数中检查，BPF_MAP_TYPE_LRU_HASH类型的Map不能有BPF_F_NO_PREALLOC标记
 } conn_map SEC(".maps");
 
-static __be32 VIP = 0x2540a8c0; // ==> 192.168.64.37
+static __be32 VIP = 0x3440a8c0; // ==> 192.168.64.52
 static __u16 VPORT = 0x5000;    // ==> 80
-static __be32 BIP = 0x6409F40A; // ==> 10.244.9.100
-static __be32 SIP = 0x2740A8C0; // ==> 192.168.64.39
-static __be32 LIP = 0x2540a8c0; // ==> 192.168.64.37
+static __be32 BIP = 0x3540a8c0; // ==> 192.168.64.53
+static __be32 LIP = 0x3440a8c0; // ==> 192.168.64.52
 
 // sch_handle_ingress
 // tc_cls_act_is_valid_access, skb->family到skb->localport不可访问
 
-int try_do_dnat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_value *value)
+int try_do_dnat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct entry_t *value)
 {
     if (skb == NULL || iph == NULL || tcph == NULL || value == NULL) {
         return TC_ACT_OK;
@@ -78,7 +77,7 @@ int try_do_dnat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, s
     return TC_ACT_OK;
 }
 
-int try_do_snat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_value *value)
+int try_do_snat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct entry_t *value)
 {
     if (skb == NULL || iph == NULL || tcph == NULL || value == NULL) {
         return TC_ACT_OK;
@@ -96,14 +95,13 @@ int try_do_snat(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, s
     return TC_ACT_OK;
 }
 
-
 // ---------------  key  ---------------------  value ------------------
 // -> DNAT: 192.168.64.39->192.168.64.37 ==> 192.168.64.39->10.244.0.9
 // -> SNAT: 192.168.64.39->10.244.0.9 ==> 192.168.64.37->10.244.0.9
 // => DNAT: 10.244.0.9->192.168.64.37 => 10.244.0.9->192.168.64.39
 // => SNAT: 10.244.0.9->192.168.64.39 => 192.168.64.37->192.168.64.39
 
-int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key)
+int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct tuple_t *key)
 {
     if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
         return TC_ACT_OK;
@@ -115,7 +113,7 @@ int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *
     bpf_printk("[N-I] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
 
     // -> DNAT: 192.168.64.39->192.168.64.37 ==> 192.168.64.39->10.244.0.9
-    struct sock_value value = {
+    struct entry_t value = {
         .addr = BIP,
         .port = VPORT,
     };
@@ -124,7 +122,7 @@ int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *
     bpf_map_update_elem(&conn_map, key, &value, BPF_NOEXIST);
 
     // => SNAT: 10.244.0.9->192.168.64.39 => 192.168.64.37->192.168.64.39
-    struct sock_key nkey = {
+    struct tuple_t nkey = {
         .saddr = value.addr,
         .sport = value.port,
         .daddr = iph->saddr,
@@ -132,7 +130,7 @@ int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *
         .protocol = iph->protocol,
     };
 
-    struct sock_value nvalue = {
+    struct entry_t nvalue = {
         .addr = VIP,
         .port = VPORT,
     };
@@ -140,7 +138,7 @@ int proxy_ipv4_ingress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *
     return try_do_dnat(skb, iph, tcph, &value);
 }
 
-int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key)
+int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct tuple_t *key)
 {
     if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
         return TC_ACT_OK;
@@ -150,9 +148,9 @@ int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *t
     }
 
     bpf_printk("[N-E] %pI4:%d -> %pI4:%d", &iph->saddr, bpf_ntohs(tcph->source), &iph->daddr, bpf_ntohs(tcph->dest));
-    
+
     // -> SNAT: 192.168.64.39->10.244.0.9 ==> 192.168.64.37->10.244.0.9
-    struct sock_value value = {
+    struct entry_t value = {
         .addr = LIP,
         .port = tcph->source,
     };
@@ -160,7 +158,7 @@ int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *t
     bpf_map_update_elem(&conn_map, key, &value, BPF_NOEXIST);
 
     // => DNAT: 10.244.0.9->192.168.64.37 => 10.244.0.9->192.168.64.39
-    struct sock_key nkey = {
+    struct tuple_t nkey = {
         .daddr = value.addr,
         .dport = value.port,
         .saddr = iph->daddr,
@@ -168,7 +166,7 @@ int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *t
         .protocol = iph->protocol,
     };
 
-    struct sock_value nvalue = {
+    struct entry_t nvalue = {
         .addr = iph->saddr,
         .port = tcph->source,
     };
@@ -177,7 +175,7 @@ int proxy_ipv4_egress(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *t
     return try_do_snat(skb, iph, tcph, &value);
 }
 
-int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct sock_key *key, int direction)
+int proxy_ipv4(struct __sk_buff *skb, struct iphdr *iph, struct tcphdr *tcph, struct tuple_t *key, int direction)
 {
     if (skb == NULL || iph == NULL || tcph == NULL || key == NULL) {
         return TC_ACT_OK;
@@ -219,7 +217,7 @@ int tc_process_ipv4(struct __sk_buff *skb, int direction)
 
     struct tcphdr *tcph = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
 
-    struct sock_key key = {
+    struct tuple_t key = {
         .daddr = iph->daddr,
         .dport = tcph->dest,
         .saddr = iph->saddr,
@@ -227,7 +225,7 @@ int tc_process_ipv4(struct __sk_buff *skb, int direction)
         .protocol = iph->protocol,
     };
 
-    struct sock_value *value = (struct sock_value *)bpf_map_lookup_elem(&conn_map, &key);
+    struct entry_t *value = (struct entry_t *)bpf_map_lookup_elem(&conn_map, &key);
     if (value == NULL) {
         return proxy_ipv4(skb, iph, tcph, &key, direction);
     }
@@ -244,7 +242,7 @@ int tc_process(struct __sk_buff *skb)
 {
     if (skb->protocol == 0x0008 /*IPv4*/) {
         return tc_process_ipv4(skb, INGRESS);
-    } else if (skb->protocol != 0xDD64 /*IPv6*/) { // 暂不处理
+    } else if (skb->protocol == 0xDD64 /*IPv6*/) { // 暂不处理
         return TC_ACT_OK;
     }
     return TC_ACT_OK;
@@ -255,7 +253,7 @@ int tc_egress(struct __sk_buff *skb)
 {
     if (skb->protocol == 0x0008 /*IPv4*/) {
         return tc_process_ipv4(skb, EGRESS);
-    } else if (skb->protocol != 0xDD64 /*IPv6*/) { // 暂不处理
+    } else if (skb->protocol == 0xDD64 /*IPv6*/) { // 暂不处理
         return TC_ACT_OK;
     }
     return TC_ACT_OK;

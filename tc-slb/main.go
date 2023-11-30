@@ -14,7 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go ebpf ebpf/tc-slb.c -- -I ../inc
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -target bpfel ebpf ebpf/tc-slb.c -- -I ../inc
 
 const (
 	ifName = "enp0s1"

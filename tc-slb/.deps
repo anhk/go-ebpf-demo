@@ -1,4 +1,3 @@
-tc-slb:./main.go \
-./ebpf_bpfeb.go \
-./ebpf_bpfel.go \
+tc-slb:./ebpf_bpfel.go \
+./main.go \
 

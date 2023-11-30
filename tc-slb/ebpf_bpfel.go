@@ -12,20 +12,20 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type ebpfSockKey struct {
-	Saddr    uint32
-	Sport    uint16
-	Pad1     uint16
-	Daddr    uint32
-	Dport    uint16
-	Protocol uint8
-	Pad2     uint8
-}
-
-type ebpfSockValue struct {
+type ebpfEntryT struct {
 	Addr uint32
 	Port uint16
 	Pad1 uint16
+}
+
+type ebpfTupleT struct {
+	Saddr    uint32
+	Daddr    uint32
+	Sport    uint16
+	Dport    uint16
+	Protocol uint8
+	Pad      uint8
+	Pad2     uint16
 }
 
 // loadEbpf returns the embedded CollectionSpec for ebpf.
