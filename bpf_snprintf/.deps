@@ -1,0 +1,3 @@
+test_snprintf:./ebpf_bpfel.go \
+./main.go \
+
