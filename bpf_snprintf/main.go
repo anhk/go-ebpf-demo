@@ -15,11 +15,8 @@ func main() {
 
 	var objs = ebpfObjects{}
 	utils.Must(loadEbpfObjects(&objs, &ebpf.CollectionOptions{
-		Maps: ebpf.MapOptions{PinPath: "/sys/fs/bpf/"},
-		Programs: ebpf.ProgramOptions{
-			LogLevel: 1,
-			LogSize:  100000000,
-		},
+		Maps:     ebpf.MapOptions{PinPath: "/sys/fs/bpf/"},
+		Programs: ebpf.ProgramOptions{LogLevel: 1, LogSize: 8 * 1024 * 1024},
 	}))
 	defer objs.Close()
 
