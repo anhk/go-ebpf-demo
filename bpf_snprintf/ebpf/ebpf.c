@@ -35,10 +35,7 @@ static inline __u32 _d(char *buff, __u32 size, __u32 d)
 static inline __u32 _s(char *buff, __u32 size, char *str)
 {
     __u32 i;
-    for (i = 0; i < size; i++) {
-        if (str[i] == 0) {
-            break;
-        }
+    for (i = 0; i < size && str[i] != 0; i++) {
         buff[i] = str[i];
     }
     return i;
