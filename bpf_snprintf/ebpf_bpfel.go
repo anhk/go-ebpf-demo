@@ -60,6 +60,7 @@ type ebpfProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfMapSpecs struct {
+	StorageMap *ebpf.MapSpec `ebpf:"storage_map"`
 }
 
 // ebpfObjects contains all objects after they have been loaded into the kernel.
@@ -81,10 +82,13 @@ func (o *ebpfObjects) Close() error {
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfMaps struct {
+	StorageMap *ebpf.Map `ebpf:"storage_map"`
 }
 
 func (m *ebpfMaps) Close() error {
-	return _EbpfClose()
+	return _EbpfClose(
+		m.StorageMap,
+	)
 }
 
 // ebpfPrograms contains all programs after they have been loaded into the kernel.

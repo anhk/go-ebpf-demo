@@ -82,6 +82,29 @@ static inline int _proxy_tcp4(char *buff, int size, __u32 sip, __u32 dip, __u16 
     return r;
 }
 
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __uint(value_size, 1024);
+    __uint(max_entries, 1);
+} storage_map SEC(".maps");
+
+static inline int proxy_tcp4(__u32 sip, __u32 dip, __u16 sport, __u16 dport)
+{
+    __u32 id = 0;
+    char *buff = bpf_map_lookup_elem(&storage_map, &id);
+    if (buff == NULL) {
+        bpf_printk("buff = NULL");
+        return 1;
+    }
+
+    // char buff[64] = {};
+    int r = _proxy_tcp4(buff, 64, sip, dip, sport, dport);
+    buff[64] = 0;
+    bpf_printk("[%d] == %s", r, buff);
+    return 0;
+}
+
 SEC("cgroup/connect4")
 int sock_connect4(struct bpf_sock_addr *ctx)
 {
@@ -91,10 +114,7 @@ int sock_connect4(struct bpf_sock_addr *ctx)
     bpf_printk("%d.%d.%d.%d", ((__u8 *)&ctx->user_ip4)[0], ((__u8 *)&ctx->user_ip4)[1], ((__u8 *)&ctx->user_ip4)[2],
                ((__u8 *)&ctx->user_ip4)[3]);
 
-    char buff[64] = {};
-    int r = _proxy_tcp4(buff, sizeof(buff), 0x33333333, ctx->user_ip4, 0x4344, ctx->user_port);
-    buff[sizeof(buff) - 1] = 0;
-    bpf_printk("[%d] == %s", r, buff);
+    proxy_tcp4(0x33333333, ctx->user_ip4, 0x4344, ctx->user_port);
 
     return 1;
 }
