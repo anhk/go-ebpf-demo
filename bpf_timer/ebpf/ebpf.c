@@ -20,7 +20,8 @@ struct {
 
 static int timer_cb(void *map, int *key, struct map_elem *val)
 {
-    bpf_printk("time_cb");
+    val->counter ++;
+    bpf_printk("time_cb: %d", val->counter);
     return 0;
 }
 
@@ -42,8 +43,8 @@ int sock_connect4(struct bpf_sock_addr *ctx)
         bpf_timer_init(&elem->timer, &hmap, CLOCK_REALTIME);
         bpf_timer_set_callback(&elem->timer, timer_cb);
         bpf_timer_start(&elem->timer, /* 1 usec */ 1000, 0);
-        bpf_timer_start(&elem->timer, /* 1 msec */ 1000 * 1000, 0);
-        bpf_timer_start(&elem->timer, /* 1  sec */ 1000 * 1000 * 1000, 0);
+        // bpf_timer_start(&elem->timer, /* 1 msec */ 1000 * 1000, 0);
+        // bpf_timer_start(&elem->timer, /* 1  sec */ 1000 * 1000 * 1000, 0);
     } else {
         bpf_printk("add elem");
         struct map_elem elem = {};
