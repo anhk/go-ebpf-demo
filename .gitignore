@@ -38,3 +38,4 @@ sockmap-redir/redir
 bpf_snprintf/test_snprintf
 bpf_timer/bpf_timer
 cgroup_dev/cgroup_dev
+cgroup_setsockopt/cgroup_setsockopt
