@@ -15,5 +15,5 @@ int k_setsockopt(struct bpf_sockopt *ctx)
     }
     bpf_printk("--- %x", ctx->level);
 
-    return SK_PASS;
+    return SK_DROP;
 }
